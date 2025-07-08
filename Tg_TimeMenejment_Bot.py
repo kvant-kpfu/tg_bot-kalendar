@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-TOKEN = os.getenv('7827784130:AAH4Jy9-WeVUYNCEdIxxR5kkcJAGDttoL_o')
+TOKEN = os.getenv('token')
 import asyncio
 import json
 import os
