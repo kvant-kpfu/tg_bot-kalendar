@@ -1,0 +1,6 @@
+aiogram==3.0.0b7
+apscheduler
+pytz
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
