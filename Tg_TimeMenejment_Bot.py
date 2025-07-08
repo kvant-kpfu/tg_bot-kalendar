@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-load_dotenv()  # Загружает переменные из .env
+load_dotenv()
 TOKEN = os.getenv('TOKEN')
 import asyncio
 import json
@@ -13,33 +13,31 @@ from datetime import datetime, timedelta
 import pytz
 import random
 
-# === Настройки ===
-TZ = "Europe/Moscow"  # Часовой пояс
-DATA_FILE = "data.json"  # Файл для сохранения данных
 
-# === Категории ===
+TZ = "Europe/Moscow" 
+DATA_FILE = "data.json" 
+
+
 CATEGORIES = {
     "workout": {"emoji": "💪", "prefix": "Самое время на тренировку!"},
     "birthday": {"emoji": "🎂", "prefix": "Сегодня день рождения у"},
     "default": {"emoji": "⏰", "prefix": ""}
 }
 
-# === Гифки ===
+
 SUCCESS_GIFS = ["https://media.giphy.com/media/1.gif  ", "https://media.giphy.com/media/2.gif  "]
 FAIL_GIFS = ["https://media.giphy.com/media/3.gif  ", "https://media.giphy.com/media/4.gif  "]
 
-# === Хранилище в памяти ===
-reminders = {}  # {user_id: [ {time, date, text, category}, ... ]}
-stats = {}  # {user_id: {workout_count: 0, total_tasks: 0}}
-user_tags = {}  # {user_id: {tag_name: tag_text}}
-user_states = {}  # {user_id: state}
 
-# === Инициализация бота ===
+reminders = {}  
+stats = {} 
+user_tags = {}  
+user_states = {}  
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 scheduler = AsyncIOScheduler(timezone=TZ)
 
-# === Главное меню ===
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🏋️ Статистика")],
@@ -50,7 +48,6 @@ main_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# === Загрузка данных из файла ===
 def load_data():
     global reminders, stats, user_tags
     if os.path.exists(DATA_FILE):
@@ -63,7 +60,6 @@ def load_data():
         except Exception as e:
             print(f"Ошибка загрузки данных: {e}")
 
-# === Сохранение данных в файл ===
 def save_data():
     try:
         with open(DATA_FILE, "w") as f:
@@ -75,7 +71,6 @@ def save_data():
     except Exception as e:
         print(f"Ошибка сохранения данных: {e}")
 
-# === Команды ===
 @dp.message(Command("start"))
 async def start(message: types.Message):
     user_id = message.from_user.id
@@ -94,17 +89,14 @@ async def show_stats(message: types.Message):
     await message.reply(f"🏋️ Тренировок выполнено: {data['workout_count']}\n"
                         f"📊 Всего задач: {data['total_tasks']}")
 
-# === Управление тегами ===
 @dp.message(lambda m: m.text == "🏷️ Теги")
 @dp.message(Command("new_signal"))
 async def manage_tags(message: types.Message):
     user_id = message.from_user.id
     user_states[user_id] = "manage_tags"
     
-    # Формируем клавиатуру с тегами
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
     
-    # Системные теги
     keyboard.inline_keyboard.append([
         InlineKeyboardButton(text="📚 Системные теги", callback_data="system_tags")
     ])
@@ -114,7 +106,6 @@ async def manage_tags(message: types.Message):
                 InlineKeyboardButton(text=f"🏷️ {tag}", callback_data=f"system_tag_{tag}")
             ])
     
-    # Пользовательские теги
     keyboard.inline_keyboard.append([
         InlineKeyboardButton(text="🧩 Пользовательские теги", callback_data="user_tags")
     ])
@@ -123,14 +114,12 @@ async def manage_tags(message: types.Message):
             InlineKeyboardButton(text=f"🏷️ {tag}", callback_data=f"edit_tag_{tag}")
         ])
     
-    # Кнопка добавления нового тега
     keyboard.inline_keyboard.append([
         InlineKeyboardButton(text="➕ Новый тег", callback_data="add_tag")
     ])
     
     await message.reply("Управление тегами:\n\nВыберите тег для просмотра или создайте новый:", reply_markup=keyboard)
 
-# === Обработчики для тегов ===
 @dp.callback_query(lambda c: c.data == "add_tag")
 async def add_new_tag(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -145,13 +134,11 @@ async def edit_tag(callback: types.CallbackQuery):
     current_text = user_tags[user_id].get(tag_name, "")
     await callback.message.edit_text(f"Текущий текст для '{tag_name}': {current_text}\n\nВведите новый текст:")
 
-# === Обработка текстовых сообщений ===
 @dp.message()
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
     text = message.text.strip()
     
-    # Обработка добавления тега
     if user_states.get(user_id) == "waiting_for_tag_name":
         user_states[user_id] = f"waiting_for_tag_text_{text}"
         await message.reply(f"Введите текст для тега '{text}':")
@@ -168,7 +155,6 @@ async def handle_text(message: types.Message):
         await manage_tags(message)
         return
     
-    # Обработка редактирования тега
     elif user_states.get(user_id, "").startswith("editing_tag_"):
         tag_name = user_states[user_id].replace("editing_tag_", "")
         user_tags[user_id][tag_name] = text
@@ -178,7 +164,6 @@ async def handle_text(message: types.Message):
         await manage_tags(message)
         return
     
-    # Обработка добавления напоминания
     if user_states.get(user_id) == "adding_reminder":
         user_states.pop(user_id, None)
         parts = text.split()
@@ -187,7 +172,6 @@ async def handle_text(message: types.Message):
             
         category = parts[0]
         if category in CATEGORIES or category in user_tags.get(user_id, {}):
-            # Показываем доступные теги
             system_tags = "\n".join([f"🏷️ {tag}" for tag in CATEGORIES if tag != "default"])
             user_tag_list = user_tags.get(user_id, {})
             user_tags_str = "\n".join([f"🏷️ {tag}" for tag in user_tag_list]) if user_tag_list else "Нет пользовательских тегов"
@@ -203,17 +187,14 @@ async def handle_text(message: types.Message):
             )
             return
     
-    # Парсинг категории и времени
     parts = text.split()
     if not parts:
         return
     
-    # Если это команда создания напоминания
     if parts[0] in CATEGORIES or parts[0] in user_tags.get(user_id, {}):
         category = parts[0]
-        reminder_text = " ".join(parts[1:])  # Оставшийся текст
+        reminder_text = " ".join(parts[1:])
         
-        # Показываем доступные теги и примеры
         system_tags = "\n".join([f"🏷️ {tag}" for tag in CATEGORIES if tag != "default"])
         user_tag_list = user_tags.get(user_id, {})
         user_tags_str = "\n".join([f"🏷️ {tag}" for tag in user_tag_list]) if user_tag_list else "Нет пользовательских тегов"
@@ -229,16 +210,13 @@ async def handle_text(message: types.Message):
         )
         return
     
-    # Если это не команда управления тегами или напоминаниями
     await message.reply("Неизвестная команда. Используйте главное меню.")
 
-# === Обработчики для уведомлений ===
 @dp.message(lambda m: m.text == "➕ Новое напоминание")
 async def new_reminder_prompt(message: types.Message):
     user_id = message.from_user.id
     user_states[user_id] = "adding_reminder"
     
-    # Формируем список доступных тегов
     system_tags = "\n".join([f"🏷️ {tag}" for tag in CATEGORIES if tag != "default"])
     user_tag_list = user_tags.get(user_id, {})
     user_tags_str = "\n".join([f"🏷️ {tag}" for tag in user_tag_list]) if user_tag_list else "Нет пользовательских тегов"
@@ -252,12 +230,10 @@ async def new_reminder_prompt(message: types.Message):
         parse_mode="Markdown"
     )
 
-# === Отправка напоминаний ===
 async def send_reminder(user_id, text, category):
     emoji = CATEGORIES.get(category, {}).get("emoji", "⏰")
     prefix = CATEGORIES.get(category, {}).get("prefix", "")
     
-    # Проверка пользовательских тегов
     if category in user_tags.get(user_id, {}):
         prefix = ""
         text = user_tags[user_id][category]
@@ -273,16 +249,14 @@ async def send_reminder(user_id, text, category):
     except Exception as e:
         print(f"Ошибка отправки пользователю {user_id}: {e}")
 
-# === Обработчик нажатия на кнопку "Выполнено" ===
 @dp.callback_query()
 async def handle_complete(callback: types.CallbackQuery):
     data = callback.data.split("_")
     if data[0] == "complete":
         user_id = int(data[1])
         category = data[2]
-        text = "_".join(data[3:])  # Восстанавливаем текст, если был с пробелами
+        text = "_".join(data[3:]) 
         
-        # Обновляем статистику только для тренировок
         if category == "workout":
             stats[user_id]["workout_count"] += 1
         stats[user_id]["total_tasks"] += 1
@@ -291,7 +265,6 @@ async def handle_complete(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ Вы успешно отметили выполнение: {text}")
         await bot.send_animation(user_id, animation=random.choice(SUCCESS_GIFS))
 
-# === Обработчик удаления напоминаний ===
 @dp.message(lambda m: m.text == "🔔 Мои уведомления")
 @dp.message(Command("my_reminders"))
 async def my_reminders(message: types.Message):
@@ -331,16 +304,14 @@ async def handle_delete_reminder(callback: types.CallbackQuery):
             idx = int(data[2])
             if 0 <= idx < len(reminders.get(user_id, [])):
                 removed = reminders[user_id].pop(idx)
-                save_data()  # Сохраняем изменения
+                save_data()
                 await callback.message.edit_text(f"🗑 Удалено напоминание: {removed['text']}")
         except (ValueError, IndexError):
             pass
-
-# === Запуск бота ===
+            
 async def main():
-    load_data()  # Загружаем данные при запуске
+    load_data() 
     
-    # Восстанавливаем планировщик
     for user_id, user_reminders in reminders.items():
         for reminder in user_reminders:
             category = reminder.get("category")
@@ -379,4 +350,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     finally:
-        save_data()  # Сохраняем данные при завершении работы
+        save_data() 
